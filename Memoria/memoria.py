@@ -3,34 +3,40 @@ from tkinter import ttk, filedialog, messagebox
 
 MEMORIA_BASE = [1000, 400, 1800, 700, 900, 1200, 1500]
 
-def primer_ajuste(archivos, memoria):
+def peor_ajuste(archivos, memoria):
     asignaciones = []
     for archivo, tam in archivos:
+        peor_idx = -1
+        peor_bloque = -1
         for i, bloque in enumerate(memoria):
-            if bloque >= tam:
-                asignaciones.append((archivo, tam, i, MEMORIA_BASE[i]))
-                memoria[i] -= tam
-                break
+            if bloque >= tam and bloque > peor_bloque:
+                peor_bloque = bloque
+                peor_idx = i
+        if peor_idx != -1:
+            asignaciones.append((archivo, tam, peor_idx, MEMORIA_BASE[peor_idx]))
+            memoria[peor_idx] -= tam
         else:
             asignaciones.append((archivo, tam, -1, None))
     return asignaciones
 
-def mejor_ajuste(archivos, memoria):
+def siguiente_ajuste(archivos, memoria):
     asignaciones = []
+    inicio = 0
+    n = len(memoria)
     for archivo, tam in archivos:
-        mejor_idx = -1
-        mejor_bloque = None
-        for i, bloque in enumerate(memoria):
-            if bloque >= tam:
-                if mejor_bloque is None or bloque < mejor_bloque:
-                    mejor_bloque = bloque
-                    mejor_idx = i
-        if mejor_idx != -1:
-            asignaciones.append((archivo, tam, mejor_idx, MEMORIA_BASE[mejor_idx]))
-            memoria[mejor_idx] -= tam
-        else:
+        encontrado = False
+        for i in range(n):
+            idx = (inicio + i) % n
+            if memoria[idx] >= tam:
+                asignaciones.append((archivo, tam, idx, MEMORIA_BASE[idx]))
+                memoria[idx] -= tam
+                inicio = idx  # Actualizamos el punto de inicio para el siguiente archivo
+                encontrado = True
+                break
+        if not encontrado:
             asignaciones.append((archivo, tam, -1, None))
     return asignaciones
+
 
 class MemoriaApp:
     def __init__(self, root):
@@ -48,9 +54,9 @@ class MemoriaApp:
 
         ttk.Button(frame_top, text="Cargar archivo .txt", command=self.cargar_archivos).grid(row=0, column=0, padx=5)
 
-        self.algoritmo_var = tk.StringVar(value="primer")
-        ttk.Radiobutton(frame_top, text="Primer Ajuste", variable=self.algoritmo_var, value="primer").grid(row=0, column=1)
-        ttk.Radiobutton(frame_top, text="Mejor Ajuste", variable=self.algoritmo_var, value="mejor").grid(row=0, column=2)
+        self.algoritmo_var = tk.StringVar(value="peor")
+        ttk.Radiobutton(frame_top, text="Peor Ajuste", variable=self.algoritmo_var, value="peor").grid(row=0, column=1)
+        ttk.Radiobutton(frame_top, text="Siguiente Ajuste", variable=self.algoritmo_var, value="siguiente").grid(row=0, column=2)
 
         ttk.Button(frame_top, text="Asignar Memoria", command=self.asignar).grid(row=0, column=3, padx=5)
         ttk.Button(frame_top, text="Reiniciar", command=self.reiniciar).grid(row=0, column=4, padx=5)
@@ -88,10 +94,10 @@ class MemoriaApp:
         self.tree.delete(*self.tree.get_children())
         self.memoria_actual = MEMORIA_BASE.copy()
 
-        if self.algoritmo_var.get() == "primer":
-            self.asignaciones = primer_ajuste(self.archivos, self.memoria_actual)
+        if self.algoritmo_var.get() == "peor":
+            self.asignaciones = peor_ajuste(self.archivos, self.memoria_actual)
         else:
-            self.asignaciones = mejor_ajuste(self.archivos, self.memoria_actual)
+            self.asignaciones = siguiente_ajuste(self.archivos, self.memoria_actual)
 
         for archivo, tam, idx, bloque_tam in self.asignaciones:
             bloque_str = str(idx + 1) if idx != -1 else "No asignado"
@@ -99,6 +105,7 @@ class MemoriaApp:
             self.tree.insert("", "end", values=(archivo, f"{tam} KB", bloque_str, bloque_tam_str))
 
         self.dibujar_bloques()
+
 
     def dibujar_bloques(self):
         self.canvas.delete("all")
